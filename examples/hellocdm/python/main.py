@@ -1,17 +1,27 @@
 # Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+import argparse
+import csv
 import json
 import requests
 import uuid
+import time
 
+isLocalDev = True
 owner = "Alice"
-tokenHeader = { "Authorization" : """Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJsZWRnZXJJZCI6ImhlbGxvY2RtIiwiYXBwbGljYXRpb25JZCI6ImZvb2JhciIsInBhcnR5IjoiQWxpY2UifQ.SY9x-Eh_mnPJwKzn4UXvHgtDSbFCRWZFqv0HgaGeXNI"""} #TODO: send meta static time
+localToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJsZWRnZXJJZCI6ImhlbGxvY2RtIiwiYXBwbGljYXRpb25JZCI6ImZvb2JhciIsInBhcnR5IjoiQWxpY2UifQ.SY9x-Eh_mnPJwKzn4UXvHgtDSbFCRWZFqv0HgaGeXNI"
 epoch = 0 # millis from epoch
-host = "localhost"
-port = "7575"
-endpoint = "http://{}:{}".format(host, port)
+localEndpoint = "http://localhost:7575"
+dablEndpoint = "https://api.projectdabl.com/data"
 metadataFileName = "../../resources/CDM.json"
+cdmEventFileName = "CashTransfer.json"
+
+endpoint = ''
+ledgerID = ''
+partyMap = {}
+partyNameMap = {}
+
 
 def loadCDMFile(fileName):
 
@@ -40,8 +50,12 @@ def writeDAMLJsonToLedger(damlDict, contractName, signatoryName, httpEndpointPre
   """Given a dict containing a DAML contract, load to the ledger via the HTTP
      REST service. Return resulting HTTP response."""
 
+  singatoryParty = partyNameToParty(signatoryName)
+  token = partyNameToToken(signatoryName)
+  tokenHeader = {'Authorization': f'Bearer {token}'}
+
   return requests.post(
-    httpEndpointPrefix + "/command/create",
+    f"{endpoint}/command/create",
     headers = tokenHeader,
     json = {
       "templateId" : {
@@ -53,10 +67,11 @@ def writeDAMLJsonToLedger(damlDict, contractName, signatoryName, httpEndpointPre
       },
       "argument": {
         "event": damlDict,
-        "owner": signatoryName,
-        "obs": signatoryName
+        "owner": singatoryParty,
+        "obs": singatoryParty
       }
-    }
+    },
+    verify=False
   )
 
 def readDAMLJsonFromLedger(contractName, signatoryName, httpEndpointPrefix):
@@ -64,8 +79,11 @@ def readDAMLJsonFromLedger(contractName, signatoryName, httpEndpointPrefix):
   """Given the contract name, query ledger for all such contracts, returning
      the HTTP response, with a monkey patched `contract` accessor."""
 
+  token = partyNameToToken(signatoryName)
+  tokenHeader = {'Authorization': f'Bearer {token}'}
+
   response = requests.post(
-    httpEndpointPrefix + "/contracts/search",
+    f"{endpoint}/contracts/search",
     headers = tokenHeader,
     json = {
       "%templates" : [
@@ -74,16 +92,17 @@ def readDAMLJsonFromLedger(contractName, signatoryName, httpEndpointPrefix):
           "entityName" : contractName
         }
       ]
-    }
+    },
+    verify=False
   )
 
   if response.status_code == 200:
-    response.contract = response.json()["result"][0]["argument"]
-    response.contractId = response.json()["result"][0]["contractId"]
+    result = response.json()["result"]
+    response.contractId = result[0]["contractId"] if result else None
 
   return response
 
-def exerciseChoice(contractIdToExerciseOn, choiceName, choiceArguments, httpEndpointPrefix):
+def exerciseChoice(signatoryName, contractIdToExerciseOn, choiceName, choiceArguments, httpEndpointPrefix):
 
   """Exercises 'SayHello' on a CashTransfer contract.
   This sets the `contract.eventIdentifier.assignedIdentifier.identifier.value`
@@ -91,8 +110,11 @@ def exerciseChoice(contractIdToExerciseOn, choiceName, choiceArguments, httpEndp
   Return the updated contract:
   """
 
+  token = partyNameToToken(signatoryName)
+  tokenHeader = {'Authorization': f'Bearer {token}'}
+
   return requests.post(
-    httpEndpointPrefix + "/command/exercise",
+    f"{endpoint}/command/exercise",
     headers = tokenHeader,
     json = {
       "meta" : {
@@ -105,12 +127,63 @@ def exerciseChoice(contractIdToExerciseOn, choiceName, choiceArguments, httpEndp
       "contractId": contractIdToExerciseOn,
       "choice": choiceName,
       "argument": choiceArguments,
-    }
+    },
+    verify=False
   )
 
+def partyToPartyName(party):
+  partyData = partyMap.get(party, None)
+  if not partyData:
+    raise Exception(f'Could not translate party "{party}" to a party name')
+  return partyData['partyName']
+
+def partyNameToParty(partyName):
+  partyData = partyNameMap.get(partyName, None)
+  if not partyData:
+    raise Exception(f'Could not translate party name "{partyName}" to a party')
+  return partyData['party']
+
+def partyToToken(party):
+  partyData = partyMap.get(party, None)
+  if not partyData:
+    raise Exception(f'Could not fetch party JWT from party "{party}"')
+  return partyData['jwt']
+
+def partyNameToToken(partyName):
+  partyData = partyNameMap.get(partyName, None)
+  if not partyData:
+    raise Exception(f'Could not fetch party JWT from party name "{partyName}"')
+  return partyData['jwt']
+
+
 if __name__ == '__main__' :
-  print("#### Loading CDM JSON from 'CashTransfer.json' ####")
-  cdmJson = loadCDMFile("CashTransfer.json")
+  parser = argparse.ArgumentParser("Hello CDM")
+  parser.add_argument('-d', '--local_dev', action='store_true')
+  parser.add_argument('-l', '--ledger_id', type=str, help="The DABL Ledger ID")
+  parser.add_argument('-p', '--party_map', type=str, help="Path to a .csv file containing a list of DABL partyName,party,jwt (no header)")
+  args = parser.parse_args()
+  if not args.local_dev and (not args.ledger_id or not args.party_map):
+    parser.error('Please provide a ledger ID and a path to partymap.csv when connecting to DABL')
+
+  isLocalDev = args.local_dev
+  ledgerID = args.ledger_id
+  endpoint = localEndpoint if isLocalDev else f'{dablEndpoint}/{ledgerID}'
+
+  if args.party_map:
+    with open(args.party_map) as csvFile:
+      readCSV = csv.reader(csvFile, delimiter=',')
+      for row in readCSV:
+        partyName, party, jwt = row
+        data = {'partyName': partyName, 'party': party, 'jwt': jwt}
+        partyMap[party] = data
+        partyNameMap[partyName] = data
+  else:
+    data = {'partyName': owner, 'party': owner, 'jwt': localToken}
+    partyMap[owner] = data
+    partyNameMap[owner] = data
+
+  print(f"#### Loading CDM JSON from {cdmEventFileName} ####")
+  cdmJson = loadCDMFile(cdmEventFileName)
   cdmJson["meta"]["globalKey"] = str(uuid.uuid4()) # We overwrite the globalKey, to avoid DAML key clashes, allowing us to reload the same contract many times.
   print("Loaded the following JSON object:")
   print(cdmJson)
@@ -125,13 +198,15 @@ if __name__ == '__main__' :
   print("HTTP service responded: {}".format(httpCreateResponse))
 
   if httpCreateResponse.status_code == 200:
+    if not isLocalDev:
+      time.sleep(2)  # since DABL responds asynchronously, Allow a couple of seconds before reading the data
     print("#### Reading back Transfer contracts from Ledger ####")
     httpContractsResponse = readDAMLJsonFromLedger("Transfer", owner, endpoint)
     print("HTTP service responded: {}".format(httpContractsResponse))
 
-    if httpContractsResponse.status_code == 200:
+    if httpContractsResponse.status_code == 200 and httpContractsResponse.contractId:
       print("#### Exercising `SayHello` on the first `CashTransfer` contract ####")
-      httpExerciseResponse = exerciseChoice(httpContractsResponse.contractId, "SayHello", { "whomToGreet" : "world!" }, endpoint)
+      httpExerciseResponse = exerciseChoice(owner, httpContractsResponse.contractId, "SayHello", { "whomToGreet" : "world!" }, endpoint)
       print("HTTP service responded: {}".format(httpExerciseResponse))
       if httpExerciseResponse.status_code != 200:
         print(httpExerciseResponse.json())

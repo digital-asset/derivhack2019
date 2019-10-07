@@ -1,6 +1,6 @@
 # Hello CDM
 
-This project shows you how to write a simple 'hello world' application that loads a CDM contract onto the ledger, exercises a choice, and reads it back.
+This project shows you how to write a simple 'hello world' application that loads a CDM contract onto the ledger, exercises a choice, and reads it back. The application can run against a local environment or [project:DABL](https://projectdabl.com/)
 
 ## Prerequisites
 * [DAML SDK](https://docs.daml.com/getting-started/installation.html)
@@ -8,7 +8,7 @@ This project shows you how to write a simple 'hello world' application that load
 * [Pipenv](https://pipenv.kennethreitz.org/en/latest/install/#installing-pipenv)
 * [Yarn](https://yarnpkg.com/lang/en/docs/install/) (Only required for react UI)
 
-## Quickstart
+## Quickstart for local environment
 
 Compile the DAML model, fetch Python dependencies:
 
@@ -32,15 +32,16 @@ daml json-api --ledger-host localhost --ledger-port 6865 --http-port 7575 --max-
 Run the main program:
 
 ```sh
-pipenv run python python/main.py
+pipenv run python python/main.py --local_dev
 ```
 
 In another shell session, run the bot, and then ***re-run*** the main program to trigger some actions:
+> Note: make sure that the 'isLocalDev` flag in [`hellocdm_bot.py`](python/bot/hellocdm_bot.py) is set to `True`
 ```sh
-pipenv run python python/bot.py
+pipenv run python python/bot/hellocdm_bot.py
 ```
 ```sh
-pipenv run python python/main.py
+pipenv run python python/main.py --local_dev
 ```
 
 One of the scripts will emit a `A command submission failed!` message - this is because the two processes are racing to update the contract simultaneously; see the tutorial below for further explanation.
@@ -64,8 +65,14 @@ hellocdm
 ├── Pipfile
 ├── Pipfile.lock
 ├── python
-│   ├── bot.py
-│   └── main.py
+│   ├── bot
+│   │   ├── __init__.py
+│   │   ├── __main__.py
+│   │   ├── hellocdm_bot.py
+│   │   └── partymap.csv
+│   ├── main.py
+│   ├── MANIFEST.in
+│   └── setup.py
 ├── README.md
 └── ui
     ├── package.json
@@ -91,7 +98,7 @@ template Transfer
     maintainer key._1
 
     controller owner can
-      SayHello : ContractId Transfer 
+      SayHello : ContractId Transfer
         with whomToGreet: Text
         do -- Need to project deep field this.contract.eventIdentifier[0].assignedIdentifier[0].value and version
           create this with event = updateIdentifier "CDM" event
@@ -106,7 +113,7 @@ Bear in mind that a ledger can only house contracts instantiated from `template`
 Now, let's start the ledger and http services:
 
 ```sh
-daml build 
+daml build
 daml sandbox --port 6865 --ledgerid hellocdm --static-time .daml/dist/*.dar
 ```
 
@@ -149,7 +156,7 @@ Although both are JSON, the are subtle differences in how the CDM and DAML are e
 
 ```python
   return requests.post(
-    httpEndpointPrefix + "/command/create",
+    f"{endpoint}/command/create",
     headers = tokenHeader,
     json = {
       "templateId" : {
@@ -161,12 +168,13 @@ Although both are JSON, the are subtle differences in how the CDM and DAML are e
       },
       "argument": {
         "event": damlDict,
-        "owner": signatoryName
+        "owner": singatoryParty,
+        "obs": singatoryParty
       }
     }
 ```
 
-Notable is the `tokenHeader`, which must be passed to authenticate with the HTTP adapter. It is a digest of `argument.owner` and the ledger id (`hellocdm`), generated on https://JWT.io following [these instructions](https://docs.daml.com/json-api/index.html#example-session). Without this field, the HTTP adapter will reject the request.
+Notable is the `tokenHeader`, which must be passed to authenticate with the HTTP adapter. It is a digest of `argument.owner` and the ledger ID (`hellocdm` for local dev). The token for your local development environment is generated on https://JWT.io following [these instructions](https://docs.daml.com/json-api/index.html#example-session). Without this field, the HTTP adapter will reject the request. In DABL you will be able to download the JWT token as well as the ledger ID from the ledger settings page.
 
 There is also a `meta.ledgerEffectiveTime` member which is not required for the local sandbox, but is mandatory for DABL, which doesn't expose a concept of ledger time. This is used in conjunction with the `--static-time` switch we used to start the ledger in the first section.
 
@@ -180,14 +188,14 @@ This returns an `HttpResponse` object, which is rendered as the HTTP 200 respons
 requests.post(
     ...
     json = {
-      "%templates" : [ 
+      "%templates" : [
         {
           "moduleName" : "Main",
-          "entityName" : contractName 
+          "entityName" : contractName
         }
       ]
     }
-  )
+    ...
 ```
 
 5. `exerciseChoice` is the final step and is used to exercise the `SayHello` choice on our contract.  Recall this updates the contract identifier to `Hello, ____!` and increments the `version` number. Again, it's very similar to the other HTTP calls. Besides the aforementioned header and meta blocks, it requires a `contractId`, `choice` and `argument` to pass to the DAML choice. In our example, the choice is `SayHello`, and the argument is the greeting message.
@@ -208,28 +216,28 @@ Finally, let's test out the script:
 
 ```sh
 pipenv install ../../resources/message_integration-0.0.1-py3-none-any.whl
-pipenv run python python/main.py
+pipenv run python python/main.py --local_dev
 ```
 
 You should see some output from each step as it's executed, showing the HTTP responses. If you inspect the ledger now, you should see some new contracts.
 
 ### Workflow Automation
 
-We now turn to the file `python/bot.py` which shows how to automate workflows. It uses the python [DAZL](https://github.com/lucianojoublanc-da/dazl-client) API ([docs](https://lucianojoublanc-da.github.io/dazl-client/dazl.client.html#module-dazl.client.api)) to talk directly to the ledger, instead of making HTTP calls. 
+We now turn to the directory `python/bot` which shows how to automate workflows. It uses the python [DAZL](https://github.com/lucianojoublanc-da/dazl-client) API ([docs](https://lucianojoublanc-da.github.io/dazl-client/dazl.client.html#module-dazl.client.api)) to talk directly to the ledger, instead of making HTTP calls.
 
-You'll see the file has two annotated methods, which register callbacks:
+You'll see the file `python/bot/hellocdm_bot.py` has two annotated methods, which register callbacks:
 
 ```python
 
-@user.ledger_init()
+@clientOwner.ledger_init()
 async def onInit(event: InitEvent):
-  print("Ready & listening for new `Event` contracts ... ")
+  print("Ready & listening for new `Transfer` contracts ... ")
 
-@user.ledger_created("Main.Event")
+@clientOwner.ledger_created("Main.Transfer")
 async def onCreate(event: ContractCreateEvent):
-  allContracts = user.find(template = "Main.Event")
+  allContracts = user.find(template = "Main.Transfer")
   ...
-  user.submit_exercise(contract.cid, "SayHello", { "whomToGreet" : "CDM"})
+  clientOwner.submit_exercise(contract.cid, "SayHello", { "whomToGreet" : "CDM"})
 
 network.run_forever()
 ```
@@ -241,9 +249,10 @@ The second, `ledger_created` is executed whenever a new contract is created on t
 The last line blocks the script and sits in a loop, making the above call-backs each time an event occurs.
 
 We can now start up the script
+> Note: make sure that the 'isLocalDev` flag in [`hellocdm_bot.py`](python/bot/hellocdm_bot.py) is set to `True` if you are testing in a local environment
 ```sh
-$ pipenv run python python/bot.py
-Ready & listening for new `Transfer` contracts ... 
+$ pipenv run python python/bot/hellocdm_bot.py
+Ready & listening for new `Transfer` contracts ...
 ```
 
 Now, run the main script again, in a separate shell. The bot should print out something like:
@@ -262,7 +271,7 @@ Tried to send a command and failed!
 The bot checks to see whether it's already greeted each contract (the id should equal "Hello, CDM!" in this case), and if not, it updates it.
 
 Curiously, you'll note that the last line says `Tried to send a command and failed!`. Your script may spew a lot of output or go into an infinite loop.
-The reason for this is that _both_ our `main.py` and the `bot.py` are racing to update the same contract. To resolve this, comment out the lines related to
+The reason for this is that _both_ our `main.py` and the `hellocdm_bot.py` are racing to update the same contract. To resolve this, comment out the lines related to
 
 ```python
 httpExerciseResponse = exerciseChoice(...)

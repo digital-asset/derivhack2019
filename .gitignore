@@ -1,2 +1,4 @@
 .daml
 *.log
+target/
+node_modules/
