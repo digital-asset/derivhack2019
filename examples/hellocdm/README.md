@@ -36,7 +36,7 @@ pipenv run python python/main.py --local_dev
 ```
 
 In another shell session, run the bot, and then ***re-run*** the main program to trigger some actions:
-> Note: make sure that the 'isLocalDev` flag in [`hellocdm_bot.py`](python/bot/hellocdm_bot.py) is set to `True`
+> Note: make sure that the `isLocalDev` flag in [`hellocdm_bot.py`](python/bot/hellocdm_bot.py) is set to `True`
 ```sh
 pipenv run python python/bot/hellocdm_bot.py
 ```
@@ -249,7 +249,7 @@ The second, `ledger_created` is executed whenever a new contract is created on t
 The last line blocks the script and sits in a loop, making the above call-backs each time an event occurs.
 
 We can now start up the script
-> Note: make sure that the 'isLocalDev` flag in [`hellocdm_bot.py`](python/bot/hellocdm_bot.py) is set to `True` if you are testing in a local environment
+> Note: make sure that the `isLocalDev` flag in [`hellocdm_bot.py`](python/bot/hellocdm_bot.py) is set to `True` if you are testing in a local environment
 ```sh
 $ pipenv run python python/bot/hellocdm_bot.py
 Ready & listening for new `Transfer` contracts ...
