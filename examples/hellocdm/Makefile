@@ -1,5 +1,5 @@
-PYTHON := pipenv run python3
-bot_version := $(shell python3 python/setup.py --version)
+PYTHON := pipenv run python
+bot_version := $(shell pipenv run python python/setup.py --version)
 dar := target/artifacts/hello-cdm.dar
 bot := target/artifacts/hello-cdm-$(bot_version).tar.gz
 
@@ -12,7 +12,7 @@ $(dar):
 
 
 $(bot):
-	cd python && python3 setup.py sdist
+	cd python && $(PYTHON) setup.py sdist
 	rm -fr python/hello_cdm.egg-info
 	mkdir -p $(@D)
 	mv python/dist/hello-cdm-$(bot_version).tar.gz $@
