@@ -8,6 +8,86 @@ This project shows you how to write a simple 'hello world' application that load
 * [Pipenv](https://pipenv.kennethreitz.org/en/latest/install/#installing-pipenv)
 * [Yarn](https://yarnpkg.com/lang/en/docs/install/) (Only required for react UI)
 
+## Quickstart for project:DABL
+
+Compile the DAML model, fetch Python dependencies:
+
+```sh
+daml build
+pipenv install ../../resources/message_integration-0.0.1-py3-none-any.whl
+```
+Locate the `.daml/dist/hellocdm-0.0.1.dar` and upload it to DABL.
+
+### Create your DABL Ledger
+
+Create a DABL project and ledger and deploy your dar file to your ledger.
+
+> ℹ️ Note: if you are uncertain of how to create and deploy in DABL you can check out the [docs](https://docs.projectdabl.com/)
+
+Go to your ledger and in the Live Data tab, click on `Add Party` and add `Alice` as a party.
+
+### Run the main program against DABL
+
+Go to the Ledger Settings tab and in the General section download the Party Map as a `.csv`
+
+Copy the `partymap.csv` file you just downloaded to the [`python/bot/`](python/bot/) directory.
+
+Run `main.py` by replacing the `-l` argument with the Ledger ID of your DABL Ledger:
+
+> ℹ️ Note: You can find your Ledger ID in the Ledger Settings tab
+
+```sh
+pipenv run python python/main.py -l yourledgerid -p python/bot/partymap.csv
+```
+
+### Run the bot against DABL
+
+In `python/bot/hellocdm_bot.py` switch the `isLocalDev` flag to `False`
+
+Package the bot into a `tar.gz` source distribution
+
+```sh
+make clean && make package
+```
+
+Locate the `target/artifacts/hello-cdm-0.1.tar.gz` file and upload it to DABL.
+
+Deploy it to your ledger.
+
+### Verify that the bot is working
+
+> ⚠️ Warning: this section will soon be replaced with functionality available in the Automation tab in your DABL Ledger. For the time being feel free to use this workaround
+
+In you Live Data tab under the Ledger Admin party check if a new `DABL.Artifact:DeployedArtifact` contract has been created. In the `metadata` object of your contract data should look something like this:
+
+```json
+"metadata": {
+  "com.projectdabl.k8s.apiVersion": "dabl.com/v1",
+  "com.projectdabl.k8s.kind": "PythonBot",
+  "com.projectdabl.k8s.metadata.name": "fn8ppsbdsn3417tz",
+  "com.projectdabl.pythonbot.party": "dabl_admin-k0d0s88jaumjx482"
+}
+```
+
+If you want to check the log output of your bot you can `curl` the following endpoint using the Ledger Admin party JWT as the Bearer token:
+
+```sh
+https://api.projectdabl.com/api/ledger/[ledgerID]/bots/[botID]/logs
+```
+
+Where `ledgerID` is your DABL Ledger ID and `botID` is the `com.projectdabl.k8s.metadata.name` property of your bot. _(in this example `fn8ppsbdsn3417tz`)_
+
+> ✅ Tip: You can form a `curl` command for the Ledger Admin by going to your Ledger Settings page selecting the Ledger Admin party in the Party JWT field and then `Copy As -> Curl`. Then replace the url with: `https://api.projectdabl.com/api/ledger/[ledgerID]/bots/[botID]/logs`
+
+Finally you can also verify the bot's functionality by creating a new `Main:Transfer` contract for Alice and checking if the bot exercises the `SayHello` choice on it.
+
+### Deleting a bot
+
+> ⚠️ Warning: this section will soon be replaced with functionality available in the Automation tab in your DABL Ledger. For the time being feel free to use this workaround
+
+In you Live Data tab under the Ledger Admin party find the `DABL.Artifact:DeployedArtifact` contract that corresponds to your deployed bot. Select the `Archive` choice and `Submit`. The contract is archived and the bot is deleted from your ledger.
+
+
 ## Quickstart for local environment
 
 Compile the DAML model, fetch Python dependencies:
@@ -36,7 +116,7 @@ pipenv run python python/main.py --local_dev
 ```
 
 In another shell session, run the bot, and then ***re-run*** the main program to trigger some actions:
-> Note: make sure that the `isLocalDev` flag in [`hellocdm_bot.py`](python/bot/hellocdm_bot.py) is set to `True`
+> ℹ️ Note: make sure that the `isLocalDev` flag in [`hellocdm_bot.py`](python/bot/hellocdm_bot.py) is set to `True`
 ```sh
 pipenv run python python/bot/hellocdm_bot.py
 ```
@@ -249,7 +329,7 @@ The second, `ledger_created` is executed whenever a new contract is created on t
 The last line blocks the script and sits in a loop, making the above call-backs each time an event occurs.
 
 We can now start up the script
-> Note: make sure that the `isLocalDev` flag in [`hellocdm_bot.py`](python/bot/hellocdm_bot.py) is set to `True` if you are testing in a local environment
+> ℹ️ Note: make sure that the `isLocalDev` flag in [`hellocdm_bot.py`](python/bot/hellocdm_bot.py) is set to `True` if you are testing in a local environment
 ```sh
 $ pipenv run python python/bot/hellocdm_bot.py
 Ready & listening for new `Transfer` contracts ...
