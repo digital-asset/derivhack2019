@@ -4,8 +4,8 @@ import * as jwt from "jsonwebtoken";
 const isLocalDev = true;
 const continuousUpdate = false;
 const localLedgerId = "hellocdm"
-const applicationId = uuidv4();
-const createToken = party => jwt.sign({ localLedgerId, applicationId, party }, "secret")
+const applicationId = "HTTP-JSON-API-Gateway"
+const createToken = party => jwt.sign({ "ledgerId": localLedgerId, "applicationId": applicationId, "party": party }, "secret")
 const parties = [ "Alice" ];
 
 // Dev config
