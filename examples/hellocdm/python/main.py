@@ -32,7 +32,7 @@ def loadCDMFile(fileName):
     return json.load(cdmJsonString)
 
 def validateCDMJson(cdmDict, className, rosettaUsername, rosettaAuthToken):
- 
+
   """Sends a CDM message to the Regnosys validation service, returning HTTP code."""
 
   return requests.post(
@@ -62,7 +62,10 @@ def writeDAMLJsonToLedger(damlDict, contractName, signatoryName, httpEndpointPre
 
   singatoryParty = partyNameToParty(signatoryName)
   token = partyNameToToken(signatoryName)
-  tokenHeader = {'Authorization': f'Bearer {token}'}
+  tokenHeader = {
+    'Authorization': f'Bearer {token}',
+    'X-DA-Party': singatoryParty
+    }
 
   return requests.post(
     f"{endpoint}/command/create",
@@ -90,7 +93,9 @@ def readDAMLJsonFromLedger(contractName, signatoryName, httpEndpointPrefix):
      the HTTP response, with a monkey patched `contract` accessor."""
 
   token = partyNameToToken(signatoryName)
-  tokenHeader = {'Authorization': f'Bearer {token}'}
+  tokenHeader = {
+    'Authorization': f'Bearer {token}',
+  }
 
   response = requests.post(
     f"{endpoint}/contracts/search",
@@ -112,7 +117,7 @@ def readDAMLJsonFromLedger(contractName, signatoryName, httpEndpointPrefix):
 
   return response
 
-def exerciseChoice(signatoryName, contractIdToExerciseOn, choiceName, choiceArguments, httpEndpointPrefix):
+def exerciseChoice(controllerName, contractIdToExerciseOn, choiceName, choiceArguments, httpEndpointPrefix):
 
   """Exercises 'SayHello' on a CashTransfer contract.
   This sets the `contract.eventIdentifier.assignedIdentifier.identifier.value`
@@ -120,8 +125,12 @@ def exerciseChoice(signatoryName, contractIdToExerciseOn, choiceName, choiceArgu
   Return the updated contract:
   """
 
-  token = partyNameToToken(signatoryName)
-  tokenHeader = {'Authorization': f'Bearer {token}'}
+  controllerParty = partyNameToParty(controllerName)
+  token = partyNameToToken(controllerName)
+  tokenHeader = {
+    'Authorization': f'Bearer {token}',
+    'X-DA-Party': controllerParty
+    }
 
   return requests.post(
     f"{endpoint}/command/exercise",

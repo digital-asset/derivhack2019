@@ -7,7 +7,7 @@ var UserDispatchContext = React.createContext();
 function userReducer(state, action) {
   switch (action.type) {
     case "LOGIN_SUCCESS":
-      return { ...state, isAuthenticated: true, token: action.token, user: action.user };
+      return { ...state, isAuthenticated: true, token: action.token, user: action.user, party: action.party };
     case "LOGIN_FAILURE":
       return { ...state, isAuthenticated: false };
     case "SIGN_OUT_SUCCESS":
@@ -21,10 +21,12 @@ function userReducer(state, action) {
 function UserProvider({ children }) {
   const token = localStorage.getItem("daml.token")
   const user = localStorage.getItem("daml.user")
+  const party = localStorage.getItem("daml.party")
   var [state, dispatch] = React.useReducer(userReducer, {
     isAuthenticated: !!token,
     token,
-    user
+    user,
+    party
   });
 
   return (
@@ -62,9 +64,11 @@ function loginUser(dispatch, user, password, history, setIsLoading, setError) {
 
   if (!!user && !!config.tokens[user]) {
     const token = config.tokens[user];
+    const party = config.parties[user];  // required for DABL
     localStorage.setItem("daml.token", token);
     localStorage.setItem("daml.user", user);
-    dispatch({ type: "LOGIN_SUCCESS", token, user });
+    localStorage.setItem("daml.party", party);
+    dispatch({ type: "LOGIN_SUCCESS", token, user, party });
     setError(null);
     setIsLoading(false);
     history.push("/app");
@@ -78,6 +82,7 @@ function loginUser(dispatch, user, password, history, setIsLoading, setError) {
 function signOut(dispatch, history) {
   localStorage.removeItem("daml.token");
   localStorage.removeItem("daml.user");
+  localStorage.removeItem("daml.party");
   dispatch({ type: "SIGN_OUT_SUCCESS" });
   history.push("/login");
 }

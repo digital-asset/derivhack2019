@@ -18,7 +18,7 @@ export default function Report() {
       argument: { whomToGreet },
       meta: { ledgerEffectiveTime: 0 }
     };
-    await sendCommand(ledgerDispatch, user.token, "exercise", command, () => {}, () => {});
+    await sendCommand(ledgerDispatch, user.token, user.party, "exercise", command, () => {}, () => {});
     await fetchContracts(ledgerDispatch, user.token, () => {}, () => {});
   }
 
@@ -40,4 +40,3 @@ export default function Report() {
     </>
   );
 }
-

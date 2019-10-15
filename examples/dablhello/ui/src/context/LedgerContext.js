@@ -59,7 +59,7 @@ export { LedgerProvider, useLedgerState, useLedgerDispatch };
 
 // ###########################################################
 
-export async function sendCommand(dispatch, token, commandType, command, setIsSending, setError) {
+export async function sendCommand(dispatch, token, party, commandType, command, setIsSending, setError) {
   setError(false);
   setIsSending(true);
 
@@ -67,6 +67,8 @@ export async function sendCommand(dispatch, token, commandType, command, setIsSe
     dispatch({ type: "COMMAND_SEND"});
     try {
       const headers = { "Content-Type": "application/json", "Authorization": "Bearer " + token };
+      if (!!party) { headers["X-DA-Party"] = party; }
+
       console.log("comand is " + command)
       console.log("stringified: " + JSON.stringify(command))
       const options = { method: "POST", headers, body: JSON.stringify(command) };
