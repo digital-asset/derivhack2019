@@ -234,7 +234,7 @@ Rosetta validation failed:
 and the program will stop.
 
 
-3. `convertCDMJsonToAdmlJson` changes the schema from the official CDM to be compatible with the ledger HTTP API. Running this would output the following:
+3. `convertCDMJsonToDAMLJson` changes the schema from the official CDM to be compatible with the ledger HTTP API. Running this would output the following:
 
 ```json
 #### Converting to DAML JSON, wrapping in an 'Event' contract ####
