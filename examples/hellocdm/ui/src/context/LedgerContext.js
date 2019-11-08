@@ -1,5 +1,4 @@
 import React from "react";
-import config from "../config";
 
 var LedgerStateContext = React.createContext();
 var LedgerDispatchContext = React.createContext();
@@ -121,7 +120,7 @@ export async function fetchContracts(dispatch, token, setIsFetching, setError) {
   }
 }
 
-function templateFilterSDK(contract, moduleName, entityName) {
+function templateFilter(contract, moduleName, entityName) {
   if (moduleName && entityName) {
     return (contract.templateId.moduleName === moduleName
       && contract.templateId.entityName === entityName);
@@ -133,23 +132,10 @@ function templateFilterSDK(contract, moduleName, entityName) {
   return true;
 }
 
-function templateFilterDABL(contract, moduleName, entityName) {
-  if (moduleName && entityName) {
-    return contract.templateId.startsWith(moduleName + ':' + entityName + '@');
-  } else if (moduleName) {
-    return contract.templateId.startsWith(moduleName + ':');
-  } else if (entityName) {
-    return contract.templateId.includes(':' + entityName + '@');
-  }
-  return true;
-}
-
 export function getContracts(state, moduleName, entityName) {
-  const templateFilter = config.isLocalDev ? templateFilterSDK : templateFilterDABL
   return state.contracts.filter(c => templateFilter(c, moduleName, entityName));
 }
 
 export function getContract(state, moduleName, entityName) {
-  const templateFilter = config.isLocalDev ? templateFilterSDK : templateFilterDABL
   return state.contracts.find(c => templateFilter(c, moduleName, entityName));
 }
