@@ -69,10 +69,7 @@ export async function sendCommand(dispatch, token, party, commandType, command, 
       const headers = { "Content-Type": "application/json", "Authorization": "Bearer " + token };
       if (!!party) { headers["X-DA-Party"] = party; }
 
-      console.log("comand is " + command)
-      console.log("stringified: " + JSON.stringify(command))
       const options = { method: "POST", headers, body: JSON.stringify(command) };
-      console.log(options);
       const response = await fetch("/command/" + commandType, options);
       const res = await response.json();
       if (res.status !== 200) throw new Error(res.errors);
@@ -124,11 +121,11 @@ export async function fetchContracts(dispatch, token, setIsFetching, setError) {
 
 function templateFilterDABL(contract, moduleName, entityName) {
   if (moduleName && entityName) {
-    return contract.templateId.startsWith(moduleName + ':' + entityName + '@');
+    return contract.templateId.moduleName === moduleName && contract.templateId.entityName === entityName;
   } else if (moduleName) {
-    return contract.templateId.startsWith(moduleName + ':');
+    return contract.templateId.moduleName === moduleName;
   } else if (entityName) {
-    return contract.templateId.includes(':' + entityName + '@');
+    return contract.templateId.entityName === entityName;
   }
   return true;
 }

@@ -7,7 +7,7 @@ export default function Contracts({ contracts, columns, actions=[] }) {
 
   actions = actions ? actions : [];
   const isDefault = !columns;
-  columns = columns ? columns : [[ "Template", "templateId" ], [ "ContractId", "contractId" ] ];
+  columns = columns ? columns : [ [ "Module", "templateId.moduleName" ], [ "Template", "templateId.entityName" ], [ "ContractId", "contractId" ] ];
 
   const classes = useStyles();
   var [state, setState] = useState({});
