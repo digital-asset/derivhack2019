@@ -1,3 +1,10 @@
+> ### Archived
+>
+> This is an old project we are no longer maintaining. It is kept online for
+> reference purposes, but bear in mind that by the time you read this it may
+> be outdated in various ways. In particular, we are no longer updating
+> dependencies, regardless of security issues.
+
 # Barclays Derivhack 2019
 
 Digital Asset supplementary material for Barclays Derivhack 2019. Directory structure:
